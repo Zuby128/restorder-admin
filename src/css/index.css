@@ -1,0 +1,58 @@
+@import url("https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=Roboto+Condensed:ital,wght@0,100..900;1,100..900&display=swap");
+@import "tailwindcss";
+
+:root {
+  font-family: "Poppins", sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: light;
+  color: #213547;
+  background-color: #f7f7f7;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  box-sizing: border-box;
+  overflow-x: hidden;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+  font-size: 16px;
+  font-weight: 400;
+  font-family: "Poppins", sans-serif;
+  min-width: 320px;
+}
+
+* {
+  box-sizing: border-box;
+  font-style: normal;
+  margin-top: 0;
+  margin-right: 0;
+  margin-bottom: 0;
+  margin-left: 0;
+}
+
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin-top: 0;
+  margin-right: 0;
+  margin-bottom: 0;
+  margin-left: 0;
+}
+
+.roboto-condensed {
+  font-family: "Roboto Condensed", serif !important;
+  font-optical-sizing: auto !important;
+}
+
+.css-1lwhjos-MuiPaper-root-MuiDrawer-paper {
+  background: #383a3f !important;
+  color: white !important;
+}
