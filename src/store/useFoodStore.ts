@@ -14,6 +14,7 @@ export interface Food {
   _id: string;
   name: string;
   description?: string;
+  ingredients?: string | string[]; // YENİ ALAN
   price: number;
   categoryId: string | { _id: string; name: string };
   restaurantNo: string;
@@ -23,7 +24,6 @@ export interface Food {
   createdAt?: string;
   updatedAt?: string;
 }
-
 interface FoodState {
   foods: Food[];
   currentFood: Food | null;
