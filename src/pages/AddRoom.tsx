@@ -1,319 +1,456 @@
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Box,
   Button,
   Card,
   CardContent,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   Grid2 as Grid,
+  IconButton,
   TextField,
-  Typography,
+  Tooltip,
+  CircularProgress,
+  Alert,
 } from "@mui/material";
+import { Delete, Edit } from "@mui/icons-material";
+
 import DivisionHeader from "../components/DivisionHeader";
-import { BorderColor, DeleteForever } from "@mui/icons-material";
-import { useState } from "react";
-import TableSvg from "../assets/images/table.svg";
-import { ROOM_TABLES } from "../db/tables";
-import SingleRoom from "../components/SingleRoom";
-import { useGlobalDialog } from "../hooks/useGlobalDialog";
+import AddedSaloons from "../components/Saloon/AddedSaloons";
+import EditSaloontable from "../components/Saloon/EditSaloontable";
+import SingleTable from "../components/SingleTable";
 
-const roomNames = ["Yaz", "Kış", "Bahar"];
-function AddRoom() {
-  const [selected, setSelected] = useState<string>("");
-  const [room, setRoom] = useState<string>("");
-  const [rooms, setRooms] = useState<string[]>(roomNames);
-  const [table, setTable] = useState<string>("");
-  const [editDialog, setEditDialog] = useState<boolean>(false);
-  const [editType, setEditType] = useState<string>("");
+import { useDialogStore } from "../store/DialogStore";
+import { useSaloonStore } from "../store/useSaloonStore";
+import { useSnackbarStore } from "../store/SnackbarStore";
+import { useTableStore } from "../store/useTableStore";
 
-  const { openDialog, closeDialog } = useGlobalDialog();
+export enum ActionType {
+  Edit = "edit",
+  Create = "create",
+}
 
-  const onAddRoom = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setRoom(event.target.value);
-  };
+interface SelectedSaloon {
+  _id: string;
+  name: string;
+}
 
-  const addRoom = () => {
-    if (room.trim()) {
-      const arr = [...rooms, room];
-      setRooms(arr);
-      setRoom("");
+const AddRoom: React.FC = () => {
+  // Local state
+  const [saloonName, setSaloonName] = useState("");
+  const [selectedSaloon, setSelectedSaloon] = useState<SelectedSaloon | null>(
+    null
+  );
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Store hooks
+  const { openDialog, closeDialog } = useDialogStore();
+  const {
+    addSaloon,
+    saloons,
+    removeSaloon,
+    editSaloon,
+    fetchSaloons,
+    isLoading: saloonsLoading,
+    error: saloonsError,
+    clearError: clearSaloonsError,
+  } = useSaloonStore();
+
+  const {
+    tables,
+    addTable,
+    fetchTables,
+    removeTable,
+    editTable,
+    isLoading: tablesLoading,
+    error: tablesError,
+    clearError: clearTablesError,
+  } = useTableStore();
+
+  const { openSnackbar } = useSnackbarStore();
+
+  // Filter tables for selected saloon
+  const filteredTables = useMemo(() => {
+    if (!selectedSaloon) return tables;
+    return tables.filter((table) =>
+      typeof table.saloonId === "object"
+        ? table.saloonId._id === selectedSaloon._id
+        : table.saloonId === selectedSaloon._id
+    );
+  }, [tables, selectedSaloon]);
+
+  // Initial data fetch
+  useEffect(() => {
+    const initializeData = async () => {
+      try {
+        await Promise.all([fetchSaloons(), fetchTables()]);
+      } catch (error) {
+        console.error("Failed to initialize data:", error);
+      }
+    };
+
+    initializeData();
+  }, [fetchSaloons, fetchTables]);
+
+  // Clear errors when component unmounts
+  useEffect(() => {
+    return () => {
+      clearSaloonsError();
+      clearTablesError();
+    };
+  }, [clearSaloonsError, clearTablesError]);
+
+  // Handlers
+  const handleAddSaloon = useCallback(async () => {
+    const trimmedName = saloonName.trim();
+
+    if (!trimmedName) {
+      openSnackbar("Salon adı boş olamaz");
+      return;
     }
-  };
 
-  const onAddTable = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setTable(event.target.value);
-  };
+    // Check for duplicate names
+    const isDuplicate = saloons.some(
+      (saloon) => saloon.name.toLowerCase() === trimmedName.toLowerCase()
+    );
 
-  const addTable = () => {
-    if (table.trim()) {
-      setTable("");
+    if (isDuplicate) {
+      openSnackbar("Bu isimde bir salon zaten mevcut");
+      return;
     }
-  };
 
-  const onSelect = (v: string) => {
-    setSelected(v);
-  };
+    setIsSubmitting(true);
 
-  const roomTable = ROOM_TABLES.slice(0, 5);
+    try {
+      await addSaloon(trimmedName);
+      openSnackbar("Salon başarıyla eklendi");
+      setSaloonName("");
+    } catch (error) {
+      console.error("Error adding saloon:", error);
+      openSnackbar("Salon eklenirken hata oluştu");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [saloonName, saloons, addSaloon, openSnackbar]);
+
+  const handleDeleteSaloon = useCallback(
+    (id: string) => {
+      // Check if saloon has tables
+      const saloonTables = tables.filter((table) =>
+        typeof table.saloonId === "object"
+          ? table.saloonId._id === id
+          : table.saloonId === id
+      );
+
+      if (saloonTables.length > 0) {
+        openSnackbar("Bu salona ait masalar var. Önce masaları silmelisiniz.");
+        return;
+      }
+
+      openDialog("Salonu Sil", "Salonu silmek istediğinize emin misiniz?", {
+        text: "Sil",
+        onClick: async () => {
+          try {
+            await removeSaloon(id);
+            openSnackbar("Salon başarıyla silindi");
+
+            // Clear selection if deleted saloon was selected
+            if (selectedSaloon?._id === id) {
+              setSelectedSaloon(null);
+            }
+          } catch (error) {
+            console.error("Error deleting saloon:", error);
+            openSnackbar("Salon silinirken hata oluştu");
+          } finally {
+            closeDialog();
+          }
+        },
+      });
+    },
+    [
+      tables,
+      selectedSaloon,
+      openDialog,
+      closeDialog,
+      removeSaloon,
+      openSnackbar,
+    ]
+  );
+
+  const handleEditSaloon = useCallback(
+    (card: SelectedSaloon) => {
+      openDialog(
+        "Salonu Düzenle",
+        <EditSaloontable
+          card={card}
+          type={ActionType.Edit}
+          handleEdit={async (id: string, name: string) => {
+            try {
+              await editSaloon(id, name);
+              openSnackbar("Salon başarıyla güncellendi");
+
+              // Update selected saloon if it was the edited one
+              if (selectedSaloon?._id === id) {
+                setSelectedSaloon({ ...selectedSaloon, name });
+              }
+            } catch (error) {
+              console.error("Error editing saloon:", error);
+              openSnackbar("Salon güncellenirken hata oluştu");
+            }
+          }}
+          closeDialog={closeDialog}
+        />
+      );
+    },
+    [selectedSaloon, openDialog, closeDialog, editSaloon, openSnackbar]
+  );
+
+  const handleAddTable = useCallback(
+    (card: SelectedSaloon) => {
+      openDialog(
+        "Masa Ekle",
+        <EditSaloontable
+          card={card}
+          type={ActionType.Create}
+          handleEdit={async (saloonId: string, tableName: string) => {
+            try {
+              await addTable(saloonId, tableName);
+              openSnackbar("Masa başarıyla eklendi");
+            } catch (error) {
+              console.error("Error adding table:", error);
+              openSnackbar("Masa eklenirken hata oluştu");
+            }
+          }}
+          closeDialog={closeDialog}
+        />
+      );
+    },
+    [openDialog, closeDialog, addTable, openSnackbar]
+  );
+
+  const handleDeleteTable = useCallback(
+    (tableId: string) => {
+      openDialog("Masayı Sil", "Masayı silmek istediğinize emin misiniz?", {
+        text: "Sil",
+        onClick: async () => {
+          try {
+            await removeTable(tableId);
+            openSnackbar("Masa başarıyla silindi");
+          } catch (error) {
+            console.error("Error deleting table:", error);
+            openSnackbar("Masa silinirken hata oluştu");
+          } finally {
+            closeDialog();
+          }
+        },
+      });
+    },
+    [openDialog, closeDialog, removeTable, openSnackbar]
+  );
+
+  const handleEditTable = useCallback(
+    (table: any) => {
+      openDialog(
+        "Masayı Düzenle",
+        <EditSaloontable
+          card={{ _id: table._id, name: table.name }}
+          type={ActionType.Edit}
+          handleEdit={async (id: string, name: string) => {
+            try {
+              const saloonId =
+                typeof table.saloonId === "object"
+                  ? table.saloonId._id
+                  : table.saloonId;
+              await editTable(id, name, saloonId);
+              openSnackbar("Masa başarıyla güncellendi");
+            } catch (error) {
+              console.error("Error editing table:", error);
+              openSnackbar("Masa güncellenirken hata oluştu");
+            }
+          }}
+          closeDialog={closeDialog}
+        />
+      );
+    },
+    [openDialog, closeDialog, editTable, openSnackbar]
+  );
+
+  const handleSelectSaloon = useCallback((saloon: SelectedSaloon) => {
+    setSelectedSaloon(saloon);
+  }, []);
+
+  const handleSaloonNameChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      setSaloonName(event.target.value);
+    },
+    []
+  );
+
+  const handleKeyPress = useCallback(
+    (event: React.KeyboardEvent) => {
+      if (event.key === "Enter" && !isSubmitting) {
+        handleAddSaloon();
+      }
+    },
+    [handleAddSaloon, isSubmitting]
+  );
+
+  // Loading state
+  const isLoading = saloonsLoading || tablesLoading;
 
   return (
     <>
-      <DivisionHeader header="Oda Yönetimi" />
+      <DivisionHeader header="Salon Yönetimi" />
+
+      {/* Error Alerts */}
+      {saloonsError && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={clearSaloonsError}>
+          {saloonsError}
+        </Alert>
+      )}
+
+      {tablesError && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={clearTablesError}>
+          {tablesError}
+        </Alert>
+      )}
+
       <Grid container spacing={2}>
-        <Grid size={{ xs: 12, md: 6 }} spacing={4}>
+        {/* Saloon Management Section */}
+        <Grid size={{ xs: 12, md: 6 }}>
           <Card sx={{ background: "#fff", p: 3, mx: "auto" }}>
             <CardContent>
-              <Box sx={{ display: "flex", alignItems: "center" }}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                 <TextField
-                  autoComplete="room"
-                  name="room"
+                  autoComplete="off"
+                  name="saloon"
                   required
                   fullWidth
                   placeholder="Salon/Oda İsmi"
-                  id="room"
-                  onChange={onAddRoom}
-                  type="text"
-                  value={room}
+                  value={saloonName}
+                  onChange={handleSaloonNameChange}
+                  onKeyPress={handleKeyPress}
                   size="small"
+                  disabled={isSubmitting}
+                  error={!saloonName.trim() && saloonName.length > 0}
+                  helperText={
+                    !saloonName.trim() && saloonName.length > 0
+                      ? "Salon adı gerekli"
+                      : ""
+                  }
                 />
-                <Button variant="contained" sx={{ ml: 1 }} onClick={addRoom}>
-                  Ekle
+                <Button
+                  variant="contained"
+                  onClick={handleAddSaloon}
+                  disabled={!saloonName.trim() || isSubmitting}
+                  startIcon={
+                    isSubmitting ? <CircularProgress size={16} /> : null
+                  }
+                  sx={{ minWidth: "auto", whiteSpace: "nowrap" }}
+                >
+                  {isSubmitting ? "Ekleniyor..." : "Ekle"}
                 </Button>
               </Box>
-              <Box
-                sx={{
-                  mt: 2,
-                  width: "100%",
-                  overflowX: "auto",
-                  overflowY: "hidden",
-                  height: 100,
-                  display: "flex",
-                  flexWrap: "nowrap",
-                  gap: 1,
-                  borderRadius: "8px",
-                  border: "2px solid #f7f7f7",
-                  alignItems: "center",
-                  px: 1,
-                }}
-              >
-                {rooms.map((v) => (
-                  <Box
-                    key={v}
-                    onClick={() => onSelect(v)}
-                    sx={{
-                      minWidth: 150,
-                      position: "relative",
-                      display: "flex",
-                      flexDirection: "column",
-                      borderRadius: "8px",
-                      border: "2px solid gray",
-                      cursor: "pointer",
-                      pb: 1,
-                      backgroundColor: v === selected ? "#f1f1f1" : "",
-                    }}
-                  >
-                    <Typography
-                      variant="h6"
-                      className="roboto-condensed"
-                      sx={{
-                        textAlign: "center",
-                        color: v === selected ? "secondary.main" : "",
-                      }}
-                    >
-                      {v}
-                    </Typography>
-                    <div className="flex justify-center w-full">
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        color="error"
-                        onClick={() =>
-                          openDialog(
-                            "Odayı sil",
-                            <p>{v} odasını silmeyi onaylıyor musunuz?</p>,
-                            {
-                              text: "Onayla",
-                              onClick: () => {
-                                console.log("masa silindi");
-                                closeDialog();
-                              },
-                            }
-                          )
-                        }
-                      >
-                        <DeleteForever
-                          sx={{ fontSize: "20px", color: "secondary.light" }}
-                        />
-                      </Button>
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        color="success"
-                        onClick={() => {
-                          setEditType("room");
-                          setEditDialog(true);
-                        }}
-                      >
-                        <BorderColor
-                          sx={{ fontSize: "20px", color: "secondary.main" }}
-                        />
-                      </Button>
-                    </div>
-                  </Box>
-                ))}
-              </Box>
+
+              {isLoading ? (
+                <Box sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
+                  <CircularProgress />
+                </Box>
+              ) : (
+                <AddedSaloons
+                  handleSelect={handleSelectSaloon}
+                  saloons={saloons}
+                  edit={handleEditSaloon}
+                  remove={handleDeleteSaloon}
+                  addTable={handleAddTable}
+                />
+              )}
             </CardContent>
           </Card>
-          {selected && (
-            <Card sx={{ background: "#fff", p: 3, mx: "auto", mt: 2 }}>
-              <CardContent>
-                <Box>
-                  <Typography variant="h6">{selected} Odası Seçildi</Typography>
-                  <Box sx={{ display: "flex", alignItems: "center" }}>
-                    <TextField
-                      autoComplete="table"
-                      name="table"
-                      required
-                      fullWidth
-                      placeholder="Masa İsmi"
-                      id="table"
-                      onChange={onAddTable}
-                      type="text"
-                      value={table}
-                      size="small"
-                    />
-                    <Button
-                      variant="contained"
-                      sx={{ ml: 1 }}
-                      onClick={addTable}
-                    >
-                      Ekle
-                    </Button>
-                  </Box>
-                </Box>
-              </CardContent>
-            </Card>
-          )}
         </Grid>
+
+        {/* Tables Section */}
         <Grid size={{ xs: 12, md: 6 }}>
-          <SingleRoom>
-            {selected &&
-              roomTable.map((v) => (
+          <Card>
+            <CardContent>
+              {!selectedSaloon ? (
                 <Box
                   sx={{
-                    border: "2px solid #A9A9A9",
-                    width: "150px",
-                    height: "150px",
-                    borderRadius: "4px",
-                    display: "flex",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    background: "#fff",
-                    position: "relative",
-                    cursor: "pointer",
+                    textAlign: "center",
+                    py: 4,
+                    color: "text.secondary",
                   }}
                 >
-                  <Box sx={{ width: "100%" }}>
-                    <Typography
-                      variant="h6"
-                      sx={{
-                        color: "#0099FC",
-                        textAlign: "center",
-                        mb: 2,
-                        maxWidth: "90px",
-                        mx: "auto",
-                      }}
-                      className="truncate"
-                    >
-                      {v.name}
-                    </Typography>
-                    <Box
-                      component="img"
-                      alt="table icon"
-                      src={TableSvg}
-                      sx={{ width: "60px", mx: "auto" }}
-                    ></Box>
-                    <div className="flex flex-nowrap justify-center pt-3 mx-auto w-full">
-                      <Button
-                        color="error"
-                        variant="outlined"
-                        onClick={() =>
-                          openDialog(
-                            "Masayı sil",
-                            <p>
-                              {selected} Odasından {v.name} masasını silmeyi
-                              onaylıyor musunuz?
-                            </p>,
-                            {
-                              text: "Onayla",
-                              onClick: () => {
-                                console.log("masa silindi");
-                              },
-                            }
-                          )
-                        }
-                      >
-                        <DeleteForever
-                          sx={{ fontSize: "20px", color: "secondary.light" }}
-                        />
-                      </Button>
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        onClick={() => {
-                          setEditType("table");
-                          setEditDialog(true);
-                        }}
-                        color="success"
-                      >
-                        <BorderColor
-                          sx={{ fontSize: "20px", color: "secondary.main" }}
-                        />
-                      </Button>
-                    </div>
-                  </Box>
+                  Masa görüntülemek için bir salon seçin
                 </Box>
-              ))}
-          </SingleRoom>
+              ) : (
+                <>
+                  <Box sx={{ mb: 2, fontWeight: "bold" }}>
+                    {selectedSaloon.name} - Masalar
+                  </Box>
+
+                  {filteredTables.length === 0 ? (
+                    <Box
+                      sx={{
+                        textAlign: "center",
+                        py: 4,
+                        color: "text.secondary",
+                      }}
+                    >
+                      Bu salonda henüz masa bulunmuyor
+                    </Box>
+                  ) : (
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "flex-start",
+                        flexWrap: "wrap",
+                        gap: 2,
+                      }}
+                    >
+                      {filteredTables.map((table) => (
+                        <Box
+                          key={table._id}
+                          sx={{
+                            borderRadius: "4px",
+                            display: "flex",
+                            flexDirection: "column",
+                            justifyContent: "center",
+                            alignItems: "center",
+                            background: "#fff",
+                            position: "relative",
+                            cursor: "pointer",
+                          }}
+                        >
+                          <SingleTable table={table} />
+                          <Box sx={{ mt: 1 }}>
+                            <Tooltip title="Masayı Düzenle">
+                              <IconButton
+                                size="small"
+                                onClick={() => handleEditTable(table)}
+                              >
+                                <Edit fontSize="small" color="primary" />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Masayı Sil">
+                              <IconButton
+                                size="small"
+                                onClick={() => handleDeleteTable(table._id)}
+                              >
+                                <Delete fontSize="small" color="error" />
+                              </IconButton>
+                            </Tooltip>
+                          </Box>
+                        </Box>
+                      ))}
+                    </Box>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
         </Grid>
       </Grid>
-      <Dialog open={editDialog} fullWidth maxWidth="sm">
-        <DialogTitle>
-          {editType === "room" ? "Oda" : "Masa"} İsmini Düzenle
-        </DialogTitle>
-        <DialogContent>
-          <TextField
-            autoComplete="room"
-            name="room"
-            required
-            fullWidth
-            placeholder={
-              editType === "room" ? "Oda İsmi Düzenle" : "Masa İsmi Düzenle"
-            }
-            id="room"
-            // onChange={onAddRoom}
-            type="text"
-            // value={room}
-            size="small"
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button color="primary" variant="contained">
-            Onayla
-          </Button>
-          <Button
-            onClick={() => setEditDialog(false)}
-            color="error"
-            variant="outlined"
-          >
-            İptal
-          </Button>
-        </DialogActions>
-      </Dialog>
     </>
   );
-}
+};
 
 export default AddRoom;

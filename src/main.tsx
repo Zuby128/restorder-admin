@@ -32,11 +32,11 @@ const theme = createTheme({
   palette: {
     primary: {
       main: "#1a5d1a",
-      light: "#316d31",
+      light: "#b0e8b0",
     },
     secondary: {
       main: "#ff6b35",
-      light: "#ff7a49",
+      light: "#ffece6",
     },
     success: {
       main: "#2dd36f",

@@ -11,40 +11,49 @@ import {
 } from "@mui/material";
 import * as Yup from "yup";
 import { useFormik } from "formik";
-import { useCookies } from "react-cookie";
 import { useNavigate } from "react-router-dom";
+import { loginIn } from "../services/auth.service";
+import { useAuthStore } from "../store/AuthStore";
+import { useSnackbarStore } from "../store/SnackbarStore";
+import GlobalSnackbar from "../components/GlobalSnackbar";
 
 interface Values {
-  name: string;
+  email: string;
   password: string;
 }
 
 const initialValues: Values = {
-  name: "",
+  email: "",
   password: "",
 };
 
 const warning = "doldurulması zorunlu alan";
 
-const AUTH: string = import.meta.env.VITE_COOKIE_AUTH as string;
-
 function Login() {
-  const [cookies, setCookie] = useCookies([AUTH]);
+  const { login } = useAuthStore();
+  const { openSnackbar } = useSnackbarStore();
   const navigate = useNavigate();
 
   const validationSchema = Yup.object({
-    name: Yup.string().max(255).required(warning),
+    email: Yup.string().max(255).required(warning),
     password: Yup.string().max(255).required(warning),
   });
 
   const formik = useFormik({
     initialValues,
     validationSchema,
-    onSubmit: async (): Promise<void> => {
-      console.log("------", formik.isValid, formik.values);
+    onSubmit: async (values): Promise<void> => {
       if (formik.isValid) {
-        setCookie(AUTH, true);
-        navigate("/");
+        try {
+          const res = await loginIn(values);
+          await login(res);
+          openSnackbar("Giriş başarılı");
+          navigate("/");
+        } catch (error) {
+          openSnackbar(
+            "Email ve/veya şifre hatalı, lütfen daha sonra tekrar deneyiniz."
+          );
+        }
       }
     },
   });
@@ -82,6 +91,7 @@ function Login() {
                 mb: 4,
               }}
             >
+              RESTORDER <br />
               YÖNETİM PANELİ
             </Typography>
             <form
@@ -90,21 +100,21 @@ function Login() {
               className="w-full flex flex-col gap-2"
             >
               <FormControl>
-                <FormLabel htmlFor="name" color="success">
+                <FormLabel htmlFor="email" color="success">
                   Kullanıcı Adı <span className="text-red-500">*</span>
                 </FormLabel>
                 <TextField
-                  autoComplete="name"
-                  name="name"
+                  autoComplete="email"
+                  name="email"
                   required
                   fullWidth
-                  id="name"
-                  error={!!(formik.touched.name && formik.errors.name)}
-                  color={formik.errors.name ? "error" : "primary"}
+                  id="email"
+                  error={!!(formik.touched.email && formik.errors.email)}
+                  color={formik.errors.email ? "error" : "primary"}
                   onBlur={formik.handleBlur}
                   onChange={formik.handleChange}
                   type="text"
-                  value={formik.values.name}
+                  value={formik.values.email}
                   size="small"
                 />
               </FormControl>
@@ -141,6 +151,7 @@ function Login() {
           </CardContent>
         </Card>
       </Box>
+      <GlobalSnackbar />
     </Box>
   );
 }

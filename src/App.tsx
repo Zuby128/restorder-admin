@@ -3,6 +3,7 @@ import Dashboard from "./layouts.tsx/Dashboard";
 import { Navigate } from "react-router-dom";
 import { useCookies } from "react-cookie";
 import GlobalDialog from "./components/GlobalDialog";
+import GlobalSnackbar from "./components/GlobalSnackbar";
 
 function App() {
   const AUTH = import.meta.env.VITE_COOKIE_AUTH;
@@ -14,6 +15,7 @@ function App() {
     <Dashboard>
       <Outlet />
       <GlobalDialog />
+      <GlobalSnackbar />
     </Dashboard>
   ) : (
     <Navigate to="/login" replace />

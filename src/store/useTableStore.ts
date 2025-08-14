@@ -1,25 +1,25 @@
 import { create } from "zustand";
+import { secureApi } from "../lib/axiosInstance";
 
 // Table API functions
-import { apiWithToken } from "../lib/axiosInstance";
 
 // GET /tables
 export const getTables = async () => {
-  const api = await apiWithToken();
+  const api = await secureApi();
   const res = await api.get("/tables");
   return res.data;
 };
 
 // GET /tables/:id
 export const getTable = async (id: string) => {
-  const api = await apiWithToken();
+  const api = await secureApi();
   const res = await api.get(`/tables/${id}`);
   return res.data;
 };
 
 // POST /tables
 export const createTable = async (name: string, saloonId: string) => {
-  const api = await apiWithToken();
+  const api = await secureApi();
   const res = await api.post("/tables/", { name, saloonId });
   return res.data;
 };
@@ -30,14 +30,14 @@ export const updateTable = async (
   name: string,
   saloonId: string
 ) => {
-  const api = await apiWithToken();
+  const api = await secureApi();
   const res = await api.patch(`/tables/${id}`, { name, saloonId });
   return res.data;
 };
 
 // DELETE /tables/:id
 export const deleteTable = async (id: string) => {
-  const api = await apiWithToken();
+  const api = await secureApi();
   await api.delete(`/tables/${id}`);
 };
 
@@ -66,7 +66,7 @@ interface TableStore {
 
   // Actions
   fetchTables: (forceRefresh?: boolean) => Promise<void>;
-  addTable: (name: string, saloonId: string) => Promise<void>;
+  addTable: (saloonId: string, name: string) => Promise<void>;
   editTable: (id: string, name: string, saloonId: string) => Promise<void>;
   removeTable: (id: string) => Promise<void>;
   clearError: () => void;
@@ -115,7 +115,7 @@ export const useTableStore = create<TableStore>((set, get) => ({
     }
   },
 
-  addTable: async (name: string, saloonId: string) => {
+  addTable: async (saloonId: string, name: string) => {
     set({ isCreating: true, error: null });
 
     try {

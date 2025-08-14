@@ -1,18 +1,10 @@
-import { Box, Typography } from "@mui/material";
-import TableSvg from "../assets/images/table.svg";
-import GlowActiveLight from "./GlowActiveLight";
-import PassiveLight from "./PassiveLight";
+import { Box, Icon, Typography } from "@mui/material";
+import { Flatware } from "@mui/icons-material";
 
 interface ITable {
   _id: string;
   name: string;
-  roomId: string;
-  roomName: string;
-  orders: any[];
-  tableOpenTime?: string;
-  tableCloseTime?: string;
   isOpen?: boolean;
-  waiter?: string;
 }
 
 function SingleTable({ table }: { table: ITable }) {
@@ -26,31 +18,27 @@ function SingleTable({ table }: { table: ITable }) {
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
-        background: "#fff",
         position: "relative",
         cursor: "pointer",
+        bgcolor: table?.isOpen ? "primary.light" : "secondary.light",
       }}
     >
-      {table?.isOpen ? <GlowActiveLight /> : <PassiveLight />}
+      {/* {table?.isOpen ? <GlowActiveLight /> : <PassiveLight />} */}
       <Box>
         <Typography
           variant="h6"
+          color="primary"
           sx={{
-            color: "#0099FC",
             textAlign: "center",
-            mb: 2,
             maxWidth: "90px",
           }}
           className="truncate"
         >
           {table.name}
         </Typography>
-        <Box
-          component="img"
-          alt="table icon"
-          src={TableSvg}
-          sx={{ width: "60px", mx: "auto" }}
-        ></Box>
+        <Icon sx={{ mx: "auto", width: "100%", height: "100%" }}>
+          <Flatware color="primary" fontSize="large" />
+        </Icon>
       </Box>
     </Box>
   );

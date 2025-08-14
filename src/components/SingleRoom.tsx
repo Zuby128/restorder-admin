@@ -10,7 +10,7 @@ function SingleRoom({ children }: { children: ReactNode }) {
         width: "100%",
         maxHeight: "80vh",
         maxWidth: "1000px",
-        borderRadius: "8px",
+        borderRadius: "4px",
       }}
     >
       <CardContent
